@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MicroTwin AI – experiment on the twin, not the crop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F1F5EC; --card:#FFFFFF; --ink:#14261C; --muted:#5B6F61;
+  --leaf:#2F7D4F; --sprout:#B7E07A; --radish:#D6336C; --line:#D9E2D3;
+  --r-lg:22px; --r-sm:10px;
+}
+@media (prefers-color-scheme:dark){
+  :root{--paper:#0E1812; --card:#16251C; --ink:#EAF3E4; --muted:#93A89A; --leaf:#6CC38C; --line:#26392D}
+}
+*{box-sizing:border-box;margin:0}
+html{scroll-behavior:smooth}
+body{font-family:"IBM Plex Sans",system-ui,sans-serif;background:var(--paper);color:var(--ink);line-height:1.6}
+h1,h2,h3{font-family:"Bricolage Grotesque",system-ui,sans-serif;line-height:1.08;letter-spacing:-.02em}
+a{color:inherit}
+.wrap{max-width:1120px;margin:0 auto;padding:0 22px}
+nav{display:flex;justify-content:space-between;align-items:center;padding:20px 0}
+nav b{font:800 1.25rem "Bricolage Grotesque",sans-serif}
+nav div a{margin-left:22px;text-decoration:none;color:var(--muted);font-size:.95rem}
+nav div a:hover{color:var(--ink)}
+.btn{display:inline-block;padding:12px 22px;border-radius:99px;background:var(--ink);color:var(--paper);font-weight:500;text-decoration:none;border:0;cursor:pointer;font-size:1rem}
+.btn.alt{background:transparent;color:var(--ink);border:1.5px solid var(--ink)}
+:focus-visible{outline:3px solid var(--radish);outline-offset:2px}
+
+/* hero */
+.hero{padding:40px 0 70px;display:grid;grid-template-columns:1.05fr 1fr;gap:48px;align-items:center}
+.hero h1{font-size:clamp(2.6rem,6vw,4.6rem);font-weight:800}
+.hero p{margin:20px 0 28px;color:var(--muted);max-width:46ch;font-size:1.1rem}
+.hero .row{display:flex;gap:12px;flex-wrap:wrap}
+.twin{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:22px;position:relative;overflow:hidden}
+.twin h3{font-size:1.1rem;margin-bottom:14px;display:flex;justify-content:space-between}
+.live{font:500 .8rem "IBM Plex Sans";color:var(--leaf);display:flex;align-items:center;gap:6px}
+.live i{width:8px;height:8px;border-radius:50%;background:var(--leaf);animation:pulse 1.6s infinite}
+@keyframes pulse{50%{opacity:.25}}
+.tray{display:grid;grid-template-columns:repeat(14,1fr);gap:4px;margin:6px 0 18px}
+.tray span{height:46px;border-radius:6px 6px 3px 3px;background:var(--sprout);transform-origin:bottom;transition:transform .8s,background .8s}
+.cmp{width:100%;border-collapse:collapse;font-size:.95rem}
+.cmp th{font-weight:500;color:var(--muted);text-align:left;padding:6px 0;border-bottom:1px solid var(--line)}
+.cmp td{padding:8px 0;border-bottom:1px solid var(--line)}
+.cmp td:not(:first-child),.cmp th:not(:first-child){text-align:right}
+.sync{margin-top:12px;font-size:.85rem;color:var(--muted)}
+
+/* sections */
+section{padding:70px 0;border-top:1px solid var(--line)}
+section>.wrap>h2{font-size:clamp(1.9rem,4vw,2.9rem);max-width:20ch}
+section>.wrap>p.lead{color:var(--muted);margin:14px 0 36px;max-width:56ch}
+
+/* simulator */
+.sim{display:grid;grid-template-columns:340px 1fr;gap:26px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:24px}
+.ctl{margin-bottom:18px}
+.ctl label{display:flex;justify-content:space-between;font-size:.95rem;margin-bottom:6px}
+.ctl output{font-weight:500}
+input[type=range]{width:100%;accent-color:var(--leaf)}
+.scen{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px}
+.sc{border:1.5px solid var(--line);border-radius:var(--r-sm);padding:16px;transition:border-color .3s,background .3s}
+.sc.best{border-color:var(--leaf);background:color-mix(in srgb,var(--sprout) 30%,var(--card))}
+.sc h4{font:700 1rem "Bricolage Grotesque";margin-bottom:2px}
+.sc small{color:var(--muted)}
+.sc dl{margin-top:10px;font-size:.92rem}
+.sc dl div{display:flex;justify-content:space-between;padding:2px 0}
+.risk-Low{color:var(--leaf)} .risk-Medium{color:#B7791F} .risk-High{color:var(--radish)}
+.reco{margin-top:20px;padding:18px 20px;border-radius:var(--r-sm);background:var(--ink);color:var(--paper);display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+.reco b{font:700 1.15rem "Bricolage Grotesque"}
+.reco button{background:var(--sprout);color:#14261C}
+#toast{margin-top:12px;min-height:1.4em;color:var(--leaf);font-weight:500}
+
+/* features */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px}
+.f{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:24px}
+.f h3{font-size:1.2rem;margin-bottom:8px}
+.f p{color:var(--muted);font-size:.96rem}
+.flow{display:flex;flex-wrap:wrap;gap:10px;font-weight:500}
+.flow span{padding:10px 16px;border-radius:99px;border:1.5px solid var(--line);background:var(--card)}
+.road{border-left:3px solid var(--leaf);padding-left:22px;display:grid;gap:18px;max-width:640px}
+.road p{color:var(--muted)}
+/* demo */
+.demo{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.lane{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:22px}
+.lane.ai{border-color:var(--leaf);border-width:2px}
+.lane h3{font-size:1.15rem}.lane small{color:var(--muted)}
+.lane dl{margin-top:8px;font-size:.95rem}
+.lane dl div{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--line)}
+.dctl{display:flex;gap:16px;align-items:center;margin:22px 0 14px;flex-wrap:wrap}
+.dctl input{flex:1;min-width:160px}
+.dctl output{font-weight:500;min-width:54px}
+#log{display:grid;gap:8px;margin-bottom:26px}
+#log p{padding:12px 16px;border-left:3px solid var(--leaf);background:var(--card);border-radius:0 var(--r-sm) var(--r-sm) 0;font-size:.95rem}
+#log p b{margin-right:8px}
+#log .cf{border-color:var(--radish)}
+.sav .f{text-align:center}
+.sav .f h3{font-size:2.2rem;color:var(--leaf)}
+.farm{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px}
+.ft{background:var(--card);border:1px solid var(--line);border-radius:var(--r-sm);padding:16px}
+.ft h4{font:700 1rem "Bricolage Grotesque"}
+.ft small{color:var(--muted)}
+.ft .bar{height:6px;border-radius:9px;background:var(--line);margin:10px 0}
+.ft .bar i{display:block;height:100%;border-radius:9px;background:var(--leaf)}
+.chip{font-size:.85rem;font-weight:500}
+.chip.Healthy{color:var(--leaf)}.chip.Watch{color:#B7791F}.chip.Act{color:var(--radish)}
+@media(max-width:860px){.demo{grid-template-columns:1fr}}
+/* growth records */
+.rec{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:18px;margin-bottom:26px}
+.rc{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:20px}
+.rc h3{font-size:1.1rem;display:flex;justify-content:space-between;align-items:baseline}
+.rc svg{width:100%;height:auto;margin:6px 0;color:var(--muted)}
+.rc dl div{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--line);font-size:.95rem}
+.rc dt{color:var(--muted)}
+.legend{display:flex;gap:18px;font-size:.9rem;color:var(--muted);margin:-8px 0 20px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.method{list-style:none;padding:0;display:grid;gap:12px;counter-reset:m;max-width:720px;margin-top:14px}
+.method li{counter-increment:m;padding-left:46px;position:relative;color:var(--muted)}
+.method li b{color:var(--ink)}
+.method li::before{content:counter(m);position:absolute;left:0;top:0;width:32px;height:32px;border-radius:50%;background:var(--leaf);color:#fff;display:grid;place-items:center;font-weight:700}
+.note{margin-top:14px;font-size:.92rem;color:var(--muted);max-width:70ch}
+/* extra features */
+:root[data-theme=dark]{--paper:#0E1812;--card:#16251C;--ink:#EAF3E4;--muted:#93A89A;--leaf:#6CC38C;--line:#26392D}
+:root[data-theme=light]{--paper:#F1F5EC;--card:#FFFFFF;--ink:#14261C;--muted:#5B6F61;--leaf:#2F7D4F;--line:#D9E2D3}
+.tg{background:none;border:1.5px solid var(--line);color:var(--ink);border-radius:99px;padding:5px 12px;margin-left:10px;cursor:pointer;font:inherit;font-size:.85rem}
+.tg:hover{border-color:var(--leaf)}
+.tourhl{outline:3px solid var(--radish);outline-offset:-3px}
+.mon{display:grid;grid-template-columns:1.6fr 1fr;gap:18px}
+.side{display:grid;gap:18px;align-content:start}
+.panel h3{font-size:1.1rem;margin-bottom:10px}
+.seg{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.seg button,.sugg button{border:1.5px solid var(--line);background:none;color:var(--ink);border-radius:99px;padding:6px 14px;cursor:pointer;font:inherit;font-size:.9rem}
+.seg button.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-size:.92rem}
+.li small{color:var(--muted)}
+.chart{width:100%;height:auto;color:var(--muted)}
+.cols3{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:18px}
+.pb{display:flex;gap:3px;align-items:center;flex:1}
+.pb i{height:10px;border-radius:5px;display:block}
+canvas{max-width:100%;border-radius:var(--r-sm);margin-top:10px}
+.fld{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:.92rem;gap:10px}
+.fld input{width:90px;padding:6px 8px;border:1.5px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);font:inherit}
+select{width:100%;padding:8px;border:1.5px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);font:inherit}
+#chat{max-height:280px;overflow:auto;display:grid;gap:8px;margin-bottom:12px}
+#chat p{padding:10px 14px;border-radius:14px;max-width:80%;font-size:.95rem}
+#chat .q{background:var(--ink);color:var(--paper);justify-self:end}
+#chat .a{background:var(--paper);border:1px solid var(--line)}
+.ask{display:flex;gap:10px;margin-top:12px}
+.ask input{flex:1;padding:12px 16px;border-radius:99px;border:1.5px solid var(--line);background:var(--paper);color:var(--ink);font:inherit}
+@media(max-width:860px){.mon{grid-template-columns:1fr}}
+footer{padding:40px 0;border-top:1px solid var(--line);color:var(--muted);font-size:.9rem}
+
+@media(max-width:860px){
+  .hero,.sim{grid-template-columns:1fr}
+  nav div a:not(.btn){display:none}
+}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <b>MicroTwin AI</b>
+    <div><a href="#simulator">Simulator</a><a href="#demo">Demo</a><a href="#farm">Farm</a><a href="#records">Growth</a><a href="#monitor">Monitor</a><a href="#grower">Tools</a><a href="#features">Features</a><a href="#roadmap">Roadmap</a><button class="tg" id="lang" type="button">தமிழ்</button><button class="tg" id="theme" type="button">Theme</button><button class="tg" id="tour" type="button">Tour</button></div>
+  </nav>
+
+  <header class="hero">
+    <div>
+      <h1>Experiment on the twin, not the crop.</h1>
+      <p>MicroTwin AI keeps a live digital copy of every microgreen tray. Test watering, light and airflow on the copy first, then apply the best choice to the real farm.</p>
+      <div class="row">
+        <a class="btn" href="#simulator">Try the simulator</a>
+        <a class="btn alt" href="#features">See how it works</a>
+      </div>
+    </div>
+    <div class="twin" aria-label="Live digital twin of tray 07">
+      <h3>Tray 07, radish <span class="live"><i></i>Synced just now</span></h3>
+      <div class="tray" id="tray" aria-hidden="true"></div>
+      <table class="cmp">
+        <tr><th>Measure</th><th>Real tray</th><th>Digital twin</th></tr>
+        <tbody id="cmp"></tbody>
+      </table>
+      <p class="sync" id="sync"></p>
+    </div>
+  </header>
+</div>
+
+<section id="simulator">
+  <div class="wrap">
+    <h2>What if I change this?</h2>
+    <p class="lead">Move the sliders. The twin predicts yield, water, energy and mold risk for your change and for three alternatives.</p>
+    <div class="sim">
+      <div class="panel">
+        <div class="ctl"><label for="crop">Crop</label><select id="crop"><option value="radish">Radish</option><option value="mustard">Mustard</option><option value="sunflower">Sunflower</option><option value="pea">Pea</option></select></div>
+        <div class="ctl"><label for="t">Temperature <output id="tO"></output></label><input id="t" type="range" min="16" max="32" step="0.5" value="24"></div>
+        <div class="ctl"><label for="h">Humidity <output id="hO"></output></label><input id="h" type="range" min="40" max="95" value="78"></div>
+        <div class="ctl"><label for="l">Light <output id="lO"></output></label><input id="l" type="range" min="80" max="320" step="5" value="180"></div>
+        <div class="ctl"><label for="w">Watering <output id="wO"></output></label><input id="w" type="range" min="50" max="140" value="100"></div>
+        <div class="ctl"><label for="v">Ventilation <output id="vO"></output></label><input id="v" type="range" min="0" max="100" value="30"></div>
+        <button class="btn alt" id="reset" type="button">Reset to live values</button>
+      </div>
+      <div>
+        <div class="scen" id="scen"></div>
+        <div class="reco">
+          <div><small>Best action for yield, water, energy and risk</small><br><b id="recoTxt"></b></div>
+          <button class="btn" id="approve" type="button">Approve and apply</button>
+        </div>
+        <p id="toast" role="status"></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="monitor">
+  <div class="wrap">
+    <h2>Live monitor</h2>
+    <p class="lead">Twenty-four hours of tray data with safe ranges, sensor health and active alerts.</p>
+    <div class="mon">
+      <div class="panel">
+        <div class="seg" id="seg"><button class="on" data-k="t" type="button">Temperature</button><button data-k="h" type="button">Humidity</button><button data-k="m" type="button">Moisture</button></div>
+        <div id="trend"></div>
+        <p class="note" id="trendNote"></p>
+      </div>
+      <div class="side">
+        <div class="panel"><h3>Sensor health</h3><div id="sens"></div></div>
+        <div class="panel"><h3>Alert center</h3><div id="alerts"></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="demo">
+  <div class="wrap">
+    <h2>Watch a 9-day batch in 30 seconds</h2>
+    <p class="lead">Two identical radish trays. One follows a fixed schedule. The other follows MicroTwin's approved recommendations.</p>
+    <div class="demo">
+      <div class="lane"><h3>Manual tray</h3><small>Fixed water and light schedule</small><div class="tray" id="trM"></div><dl id="stM"></dl></div>
+      <div class="lane ai"><h3>MicroTwin tray</h3><small>Twin-guided decisions</small><div class="tray" id="trA"></div><dl id="stA"></dl></div>
+    </div>
+    <div class="dctl">
+      <button class="btn" id="play" type="button">Play demo</button>
+      <input type="range" id="day" min="1" max="9" value="1" aria-label="Growth day">
+      <output id="dayO">Day 1</output>
+    </div>
+    <div id="log" aria-live="polite"></div>
+    <div class="grid sav" id="sav"></div>
+  </div>
+</section>
+
+<section id="farm">
+  <div class="wrap">
+    <h2>Your whole farm at a glance</h2>
+    <p class="lead">Every tray shows its stage, health and what needs attention first.</p>
+    <div class="farm" id="farmGrid"></div>
+  </div>
+</section>
+
+<section id="records">
+  <div class="wrap">
+    <h2>Plant growth records: stem and root analysis</h2>
+    <p class="lead">Three records of the same radish tray. Each one measures stem and root length, and the twin uses their balance to judge growth quality. These are sample values until you enter your measurements.</p>
+    <div class="legend"><span><i style="background:var(--leaf)"></i>Stem</span><span><i style="background:#C9A66B"></i>Root</span></div>
+    <div class="rec" id="recGrid"></div>
+    <div class="panel" style="overflow-x:auto">
+      <table class="cmp" id="recTable"></table>
+    </div>
+    <p class="note" id="recNote"></p>
+    <h3 style="margin:38px 0 4px;font-size:1.5rem">How the analysis works</h3>
+    <ol class="method">
+      <li><b>Photograph.</b> Take a side-on photo of the tray with a ruler or a 5 cm marker in the frame.</li>
+      <li><b>Sample.</b> Pick about 10 seedlings per record, on days 3, 6 and 9.</li>
+      <li><b>Measure.</b> Stem length runs from the seed base to the top of the stem. Root length runs from the seed base to the root tip. <code>analyze_growth.py</code> does this from the photo.</li>
+      <li><b>Compute.</b> Average the sample, then calculate the root to stem ratio and stem growth per day.</li>
+      <li><b>Feed the twin.</b> The records become training data and calibrate the growth model after every harvest.</li>
+    </ol>
+  </div>
+</section>
+
+<section id="analysis">
+  <div class="wrap">
+    <h2>Growth analysis tools</h2>
+    <p class="lead">Compare predicted and measured growth, check prediction accuracy, and estimate canopy coverage from a photo.</p>
+    <div class="cols3">
+      <div class="panel"><h3>Growth curve</h3><div id="gcurve"></div></div>
+      <div class="panel"><h3>Prediction accuracy</h3><div id="acc"></div></div>
+      <div class="panel"><h3>Canopy photo analyzer</h3>
+        <input type="file" id="photo" accept="image/*" aria-label="Upload a tray photo">
+        <canvas id="cv" width="0" height="0"></canvas>
+        <p class="note" id="cvOut">Upload a top-down photo of a tray.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="grower">
+  <div class="wrap">
+    <h2>Grower tools</h2>
+    <p class="lead">Costs, harvest dates and a record of every decision. Prices are editable.</p>
+    <div class="cols3">
+      <div class="panel"><h3>Cost and profit per tray</h3>
+        <div class="fld"><label for="cs">Seed cost (₹)</label><input id="cs" type="number" value="40" min="0"></div>
+        <div class="fld"><label for="cp">Power (₹/kWh)</label><input id="cp" type="number" value="8" min="0"></div>
+        <div class="fld"><label for="cw">Water (₹/L)</label><input id="cw" type="number" value="0.1" min="0" step="0.05"></div>
+        <div class="fld"><label for="cr">Price (₹/100 g)</label><input id="cr" type="number" value="100" min="0"></div>
+        <div id="cOut"></div>
+      </div>
+      <div class="panel"><h3>Harvest calendar</h3><div id="cal"></div></div>
+      <div class="panel"><h3>Action log</h3><div id="alog"></div><button class="btn alt" id="csv" type="button" style="margin-top:14px">Download batch report (CSV)</button></div>
+    </div>
+  </div>
+</section>
+
+<section id="ask">
+  <div class="wrap">
+    <h2>Ask the twin</h2>
+    <p class="lead">Ask about this tray and get an answer from the data on this page.</p>
+    <div class="panel" style="max-width:720px">
+      <div id="chat" aria-live="polite"></div>
+      <div class="seg sugg" id="sugg"><button type="button">Is mold a risk?</button><button type="button">What is my yield?</button><button type="button">How are stem and root?</button></div>
+      <div class="ask"><input id="qi" placeholder="Type a question" aria-label="Question"><button class="btn" id="qb" type="button">Ask</button></div>
+    </div>
+  </div>
+</section>
+
+<section id="features">
+  <div class="wrap">
+    <h2>From sensing to a decision you approve</h2>
+    <p class="lead">Each step feeds the next, and the grower stays in control.</p>
+    <div class="flow" style="margin-bottom:34px"><span>Sensors and camera</span><span>Growth model</span><span>Digital twin</span><span>What-if engine</span><span>Grower approval</span><span>Fan, pump, light</span></div>
+    <div class="grid">
+      <div class="f"><h3>Live digital twin</h3><p>Every tray mirrors its real conditions, growth stage and predicted harvest day.</p></div>
+      <div class="f"><h3>What-if simulator</h3><p>Compare current settings with alternatives before touching the crop.</p></div>
+      <div class="f"><h3>Mold and stress early warning</h3><p>Flags rising risk hours ahead and tells you which change lowers it.</p></div>
+      <div class="f"><h3>Canopy tracking</h3><p>Camera images become canopy area and growth rate to sharpen yield predictions.</p></div>
+      <div class="f"><h3>Harvest planner</h3><p>Predicted harvest dates across all trays, so orders match what is ready.</p></div>
+      <div class="f"><h3>Resource and cost view</h3><p>Water, electricity and cost per batch, tracked tray by tray.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="roadmap">
+  <div class="wrap">
+    <h2>Built to grow with the farm</h2>
+    <p class="lead">The prototype runs on two trays. Every stage below is a real step toward a working product.</p>
+    <div class="road">
+      <div><h3>Now: two-tray prototype</h3><p>ESP32 sensors, camera, one trained yield model and this simulator.</p></div>
+      <div><h3>Next: calibrated twin</h3><p>More growth cycles per crop, so predictions match real harvest weights.</p></div>
+      <div><h3>Later: many trays and crops</h3><p>Crop-specific models, alerts by phone and approved automatic control.</p></div>
+    </div>
+  </div>
+</section>
+
+<footer><div class="wrap">MicroTwin AI. Prototype figures on this page are simulated.</div></footer>
+
+<script>
+const $=id=>document.getElementById(id);
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const bell=(x,opt,w)=>Math.exp(-(((x-opt)/w)**2));
+
+/* Simple twin model. Replace with your trained XGBoost API later. */
+const CROPS={radish:{t:22,l:210,h:62,base:92},mustard:{t:21,l:190,h:60,base:88},sunflower:{t:23,l:230,h:58,base:110},pea:{t:20,l:200,h:64,base:100}};
+let crop=CROPS.radish;
+function predict(s){
+  const y=crop.base*bell(s.t,crop.t,6)*bell(s.l,crop.l,110)*bell(s.w,100,45)*(0.85+0.15*bell(s.h,crop.h,28));
+  const moldRaw=clamp((s.h-65)/30,0,1)*0.6+clamp((s.w-100)/60,0,1)*0.25+clamp((40-s.v)/40,0,1)*0.35;
+  const mold=clamp(moldRaw-s.v/250,0,1);
+  const water=2.1*s.w/100;
+  const energy=0.9+s.l*0.0018+s.v*0.0035+Math.abs(s.t-22)*0.02;
+  const risk=mold<.28?"Low":mold<.55?"Medium":"High";
+  const score=y-mold*28-water*3-energy*4;
+  return {y,water,energy,risk,mold,score};
+}
+const fields=[["t","t","°C"],["h","h","%"],["l","l"," PPFD"],["w","w","%"],["v","v","%"]];
+const read=()=>({t:+$("t").value,h:+$("h").value,l:+$("l").value,w:+$("w").value,v:+$("v").value});
+
+/* live "real" tray, drifting values */
+const real={t:24,h:78,l:180,w:100,v:30,m:62};
+function drift(){
+  real.t=clamp(real.t+(Math.random()-.5)*.4,22,26);
+  real.h=clamp(real.h+(Math.random()-.5)*1.2,72,84);
+  real.l=clamp(real.l+(Math.random()-.5)*4,170,190);
+  real.m=clamp(real.m+(Math.random()-.5)*1,58,66);
+  paintLive();
+}
+function paintLive(){
+  const p=predict(real);
+  const rows=[["Temperature",real.t.toFixed(1)+"°C"],["Humidity",Math.round(real.h)+"%"],["Light",Math.round(real.l)+" PPFD"],["Moisture",Math.round(real.m)+"%"],["Predicted yield",p.y.toFixed(0)+" g"]];
+  $("cmp").innerHTML=rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[1]}</td></tr>`).join("");
+  const age=Math.min(1,0.45+Math.random()*.02);
+  [...$("tray").children].forEach((b,i)=>{b.style.transform=`scaleY(${(age*(.7+.3*Math.sin(i*1.7+Date.now()/9000))).toFixed(2)})`;b.style.background=p.mold>.55?"var(--radish)":"var(--sprout)"});
+  $("sync").textContent=`Growth day 6. Predicted harvest day 9. Mold risk: ${p.risk}.`;
+}
+for(let i=0;i<14;i++)$("tray").appendChild(document.createElement("span"));
+paintLive();setInterval(drift,2500);
+
+/* simulator */
+function scenarios(s){
+  const m=(o)=>({...s,...o});
+  return [
+    {n:"Your change",d:"Slider settings",s},
+    {n:"More airflow",d:"Ventilation +25%",s:m({v:clamp(s.v+25,0,100)})},
+    {n:"Water less",d:"Watering -15%",s:m({w:clamp(s.w-15,50,140)})},
+    {n:"More light",d:"Light +10%",s:m({l:clamp(s.l+10,80,320)})}
+  ];
+}
+let bestScenario=null;
+function render(){
+  const s=read();
+  fields.forEach(([id,,u])=>$(id+"O").textContent=$(id).value+u);
+  const list=scenarios(s).map(x=>({...x,p:predict(x.s)}));
+  const bi=list.reduce((b,x,i)=>x.p.score>list[b].p.score?i:b,0);
+  bestScenario=list[bi];
+  $("scen").innerHTML=list.map((x,i)=>`<div class="sc ${i===bi?"best":""}"><h4>${x.n}${i===bi?" (best)":""}</h4><small>${x.d}</small><dl>
+    <div><dt>Yield</dt><dd>${x.p.y.toFixed(0)} g</dd></div>
+    <div><dt>Water</dt><dd>${x.p.water.toFixed(1)} L</dd></div>
+    <div><dt>Energy</dt><dd>${x.p.energy.toFixed(2)} kWh</dd></div>
+    <div><dt>Mold risk</dt><dd class="risk-${x.p.risk}">${x.p.risk}</dd></div></dl></div>`).join("");
+  $("recoTxt").textContent=`${list[bi].n}: ${list[bi].p.y.toFixed(0)} g, ${list[bi].p.risk.toLowerCase()} mold risk`;
+}
+document.querySelectorAll("input[type=range]").forEach(i=>i.addEventListener("input",render));
+$("reset").onclick=()=>{[["t",real.t],["h",real.h],["l",real.l],["w",100],["v",30]].forEach(([id,v])=>$(id).value=Math.round(v*2)/2);$("toast").textContent="";render()};
+$("approve").onclick=()=>{
+  const s=bestScenario.s;
+  fields.forEach(([id])=>$(id).value=s[id]);
+  Object.assign(real,s);
+  $("toast").textContent=`Applied: ${bestScenario.n}. Fan, pump and light commands sent to tray 07.`;
+  logAction(`Approved "${bestScenario.n}": ${bestScenario.p.y.toFixed(0)} g predicted, ${bestScenario.p.risk} mold risk.`);
+  render();paintLive();
+};
+render();
+
+/* 9-day demo: manual vs twin-guided tray */
+const logEv=[
+  [2,"Twin predicted more growth with light +10%. Grower approved."],
+  [4,"Twin warned of rising mold risk on tray B and recommended more airflow. Grower approved."],
+  [7,"Twin cut watering by 15% with almost no yield loss. Grower approved."]
+];
+const g=d=>{const f=x=>1/(1+Math.exp(-(x-4.5)*.9));return f(d)/f(9)};
+const sim=d=>({
+  M:{y:78*g(d),w:2.4*d/9,e:1.6*d/9,r:d<5?"Low":"Medium"},
+  A:{y:86*g(d),w:1.9*d/9,e:1.4*d/9,r:"Low"}
+});
+["trM","trA"].forEach(id=>{for(let i=0;i<14;i++)$(id).appendChild(document.createElement("span"))});
+function paintDemo(d){
+  const s=sim(d);
+  $("dayO").textContent="Day "+d;
+  [["M","trM","stM"],["A","trA","stA"]].forEach(([k,tr,st])=>{
+    [...$(tr).children].forEach((b,i)=>{
+      const wob=k==="M"?.55+.45*Math.abs(Math.sin(i*2.3)):.88+.12*Math.sin(i*1.3);
+      b.style.transform=`scaleY(${Math.max(.08,g(d)*wob).toFixed(2)})`;
+      b.style.background=k==="M"&&d>=5&&i%5===2?"var(--radish)":"var(--sprout)";
+    });
+    const v=s[k];
+    $(st).innerHTML=`<div><dt>Yield so far</dt><dd>${v.y.toFixed(0)} g</dd></div><div><dt>Water used</dt><dd>${v.w.toFixed(1)} L</dd></div><div><dt>Energy used</dt><dd>${v.e.toFixed(2)} kWh</dd></div><div><dt>Mold risk</dt><dd class="risk-${v.r}">${v.r}</dd></div>`;
+  });
+  let html=logEv.filter(e=>e[0]<=d).map(e=>`<p><b>Day ${e[0]}</b>${e[1]}</p>`).join("");
+  if(d===9)html+=`<p class="cf"><b>Replay</b>If the manual tray had added airflow on day 4, the twin estimates about +6 g and Low mold risk.</p>`;
+  $("log").innerHTML=html||"<p><b>Day 1</b>Both trays start with the same seeds and settings.</p>";
+  const ws=s.M.w-s.A.w,es=s.M.e-s.A.e,ys=s.A.y-s.M.y;
+  $("sav").innerHTML=[[ws.toFixed(1)+" L","water saved"],[es.toFixed(2)+" kWh","energy saved"],["+"+ys.toFixed(0)+" g","extra yield"]].map(x=>`<div class="f"><h3>${x[0]}</h3><p>${x[1]}</p></div>`).join("");
+}
+let timer=null;
+$("day").addEventListener("input",()=>{stopDemo();paintDemo(+$("day").value)});
+function stopDemo(){clearInterval(timer);timer=null;$("play").textContent="Play demo"}
+$("play").onclick=()=>{
+  if(timer)return stopDemo();
+  if(+$("day").value>=9)$("day").value=1;
+  paintDemo(+$("day").value);
+  $("play").textContent="Pause demo";
+  timer=setInterval(()=>{
+    const d=+$("day").value+1;
+    $("day").value=d;paintDemo(d);
+    if(d>=9)stopDemo();
+  },3000);
+};
+paintDemo(1);
+
+/* farm overview */
+const trays=[["Tray 01","Radish",6,"Healthy"],["Tray 02","Mustard",3,"Healthy"],["Tray 03","Sunflower",5,"Watch"],["Tray 04","Pea",7,"Healthy"],["Tray 05","Radish",2,"Act"],["Tray 06","Mustard",8,"Watch"]];
+$("farmGrid").innerHTML=trays.map(t=>`<div class="ft"><h4>${t[0]}</h4><small>${t[1]}, day ${t[2]} of 9</small><div class="bar"><i style="width:${t[2]/9*100}%"></i></div><span class="chip ${t[3]}">${t[3]==="Act"?"Needs action":t[3]==="Watch"?"Keep an eye":"Healthy"}</span></div>`).join("");
+
+/* plant growth records. Replace with your measured averages (cm, g). */
+const records=[
+  {n:1,day:3,stem:1.8,root:2.1,wt:0.9},
+  {n:2,day:6,stem:4.6,root:3.4,wt:2.4},
+  {n:3,day:9,stem:7.2,root:4.1,wt:4.1}
+];
+const ratioOf=r=>r.root/r.stem;
+const statusOf=r=>{const q=ratioOf(r);return q>=.5?["Balanced","Healthy"]:q>=.35?["Watch","Watch"]:["Stretching","Act"]};
+const rate=(r,i)=>{const p=records[i-1]||{day:0,stem:0};return (r.stem-p.stem)/(r.day-p.day)};
+function plantSvg(r){
+  const k=11,g=100,top=g-r.stem*k,bot=g+r.root*k;
+  return `<svg viewBox="0 0 200 175" role="img" aria-label="Plant with stem ${r.stem} cm and root ${r.root} cm">
+    <rect x="0" y="${g}" width="200" height="75" fill="#8a6a45" opacity=".14"/>
+    <line x1="0" y1="${g}" x2="200" y2="${g}" stroke="currentColor" stroke-dasharray="4 4" opacity=".5"/>
+    <line x1="100" y1="${g}" x2="100" y2="${top}" stroke="var(--leaf)" stroke-width="4" stroke-linecap="round"/>
+    <ellipse cx="90" cy="${top}" rx="10" ry="5" fill="var(--leaf)" transform="rotate(-25 90 ${top})"/>
+    <ellipse cx="110" cy="${top}" rx="10" ry="5" fill="var(--leaf)" transform="rotate(25 110 ${top})"/>
+    <line x1="100" y1="${g}" x2="100" y2="${bot}" stroke="#C9A66B" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="${g+r.root*k*.4}" x2="88" y2="${g+r.root*k*.6}" stroke="#C9A66B" stroke-width="1.6" stroke-linecap="round"/>
+    <line x1="100" y1="${g+r.root*k*.65}" x2="113" y2="${g+r.root*k*.85}" stroke="#C9A66B" stroke-width="1.6" stroke-linecap="round"/>
+    <text x="124" y="${g-r.stem*k/2+4}" font-size="11" fill="var(--leaf)">stem ${r.stem} cm</text>
+    <text x="124" y="${g+r.root*k/2+4}" font-size="11" fill="#C9A66B">root ${r.root} cm</text></svg>`;
+}
+$("recGrid").innerHTML=records.map((r,i)=>{const st=statusOf(r);return `<div class="rc"><h3>Record ${r.n}<small style="color:var(--muted);font-weight:400">Day ${r.day}</small></h3>${plantSvg(r)}<dl>
+  <div><dt>Root to stem ratio</dt><dd>${ratioOf(r).toFixed(2)}</dd></div>
+  <div><dt>Stem growth</dt><dd>${rate(r,i).toFixed(1)} cm/day</dd></div>
+  <div><dt>Fresh weight</dt><dd>${r.wt} g</dd></div>
+  <div><dt>Growth quality</dt><dd class="chip ${st[1]}">${st[0]}</dd></div></dl></div>`}).join("");
+$("recTable").innerHTML=`<tr><th>Record</th><th>Day</th><th>Stem (cm)</th><th>Root (cm)</th><th>Ratio</th><th>Weight (g)</th></tr>`+records.map(r=>`<tr><td>Record ${r.n}</td><td style="text-align:right">${r.day}</td><td>${r.stem}</td><td>${r.root}</td><td>${ratioOf(r).toFixed(2)}</td><td>${r.wt}</td></tr>`).join("");
+$("recNote").textContent="The ratio falls naturally as stems lengthen. A sudden drop below 0.35 can suggest stem stretching, often from weak light, and the twin flags it as an early warning, not a diagnosis.";
+
+/* ---- extra features ---- */
+const hrs=Array.from({length:24},(_,i)=>i);
+const series={
+  t:{n:"Temperature",u:"°C",c:"#D6336C",band:[21,26],min:18,max:30,d:hrs.map(i=>24+1.6*Math.sin(i/3.5)+.4*Math.sin(i*1.7))},
+  h:{n:"Humidity",u:"%",c:"#2F7D4F",band:[60,80],min:50,max:95,d:hrs.map(i=>74+8*Math.sin((i-4)/3.8)+2*Math.sin(i*2.1))},
+  m:{n:"Moisture",u:"%",c:"#B7791F",band:[55,70],min:45,max:80,d:hrs.map(i=>62+3*Math.sin(i/5)+Math.sin(i*1.3))}};
+function chart(el,lines,o){
+  const W=640,H=230,L=44,R=14,T=26,B=30,x0=Math.min(...o.xs),x1=Math.max(...o.xs);
+  const X=x=>L+(x-x0)/(x1-x0)*(W-L-R),Y=v=>T+(1-(v-o.min)/(o.max-o.min))*(H-T-B);
+  let s=`<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${o.label}">`;
+  if(o.band)s+=`<rect x="${L}" y="${Y(o.band[1])}" width="${W-L-R}" height="${Y(o.band[0])-Y(o.band[1])}" fill="#B7E07A" opacity=".3"/>`;
+  [o.min,(o.min+o.max)/2,o.max].forEach(v=>s+=`<line x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)"/><text x="${L-6}" y="${Y(v)+4}" font-size="11" text-anchor="end" fill="currentColor">${Math.round(v)}</text>`);
+  o.xs.forEach((x,i)=>{if(i%o.step===0)s+=`<text x="${X(x)}" y="${H-8}" font-size="11" text-anchor="middle" fill="currentColor">${o.xl(x)}</text>`});
+  lines.forEach(l=>{
+    const pts=l.d.map((v,i)=>v==null?null:[X(o.xs[i]),Y(v)]).filter(Boolean);
+    s+=`<polyline points="${pts.map(p=>p.join(",")).join(" ")}" fill="none" stroke="${l.c}" stroke-width="2.5" ${l.dash?'stroke-dasharray="6 5"':""} stroke-linejoin="round"/>`;
+    if(l.dots)pts.forEach(p=>s+=`<circle cx="${p[0]}" cy="${p[1]}" r="4" fill="${l.c}"/>`);
+    (l.hot||[]).forEach(i=>s+=`<circle cx="${X(o.xs[i])}" cy="${Y(l.d[i])}" r="5" fill="#D6336C"/>`);});
+  if(o.legend)o.legend.forEach((g,i)=>s+=`<text x="${L+8+i*190}" y="14" font-size="11" fill="${g[1]}">● ${g[0]}</text>`);
+  el.innerHTML=s+"</svg>";
+}
+let mk="t";
+function trend(){
+  const k=series[mk];
+  chart($("trend"),[{d:k.d,c:k.c,hot:mk==="h"?k.d.map((v,i)=>v>80?i:-1).filter(i=>i>=0):[]}],{xs:hrs,min:k.min,max:k.max,band:k.band,step:4,xl:x=>x+"h",label:k.n+" over 24 hours"});
+  $("trendNote").textContent=`Shaded band is the safe range: ${k.band[0]} to ${k.band[1]}${k.u}.`+(mk==="h"?" Red dots mark hours above 80%.":"")+" Sample data.";
+}
+document.querySelectorAll("#seg button").forEach(b=>b.onclick=()=>{mk=b.dataset.k;document.querySelectorAll("#seg button").forEach(x=>x.classList.toggle("on",x===b));trend()});
+trend();
+
+const lab={Healthy:"Online",Watch:"Drift",Act:"Offline"};
+$("sens").innerHTML=[["Temperature and humidity","Healthy","12 s ago"],["Substrate moisture","Watch","reading drifting +3%"],["Light sensor","Healthy","12 s ago"],["Water level","Healthy","1 min ago"],["Camera","Act","no image since 09:40"]]
+  .map(a=>`<div class="li"><span>${a[0]}<br><small>${a[2]}</small></span><span class="chip ${a[1]}">${lab[a[1]]}</span></div>`).join("");
+const hot=series.h.d.slice(-6).filter(v=>v>80).length,alerts=[];
+if(hot)alerts.push(["Act",`Humidity above 80% in ${hot} of the last 6 hours`]);
+alerts.push(["Act","Tray 05: slow germination, check moisture"],["Watch","Tray 03: light slightly below target"],["Healthy","Tray 01: on track for day 9 harvest"]);
+$("alerts").innerHTML=alerts.map(a=>`<div class="li"><span>${a[1]}</span><span class="chip ${a[0]}">${a[0]==="Act"?"Action":a[0]}</span></div>`).join("");
+
+$("crop").onchange=e=>{crop=CROPS[e.target.value];render();paintLive()};
+
+const days=[0,1,2,3,4,5,6,7,8,9];
+const meas=k=>days.map(d=>d===0?0:((records.find(r=>r.day===d)||{})[k]??null));
+chart($("gcurve"),[{d:days.map(d=>+(7.6*g(d)).toFixed(2)),c:"#2F7D4F",dash:1},{d:meas("stem"),c:"#2F7D4F",dots:1},{d:meas("root"),c:"#C9A66B",dots:1}],
+  {xs:days,min:0,max:9,step:1,xl:x=>"D"+x,label:"Stem and root growth by day",legend:[["Stem (dashed is predicted)","#2F7D4F"],["Root","#C9A66B"]]});
+
+const acc=[["Batch 1",82,79],["Batch 2",85,88],["Batch 3",80,78]];
+const mae=acc.reduce((a,b)=>a+Math.abs(b[1]-b[2]),0)/acc.length,mape=acc.reduce((a,b)=>a+Math.abs(b[1]-b[2])/b[2],0)/acc.length*100;
+$("acc").innerHTML=acc.map(a=>`<div class="li"><span>${a[0]}</span><span class="pb"><i style="width:${a[1]*.8}px;background:var(--leaf)"></i><i style="width:${a[2]*.8}px;background:#B7E07A"></i></span><span>${a[1]} / ${a[2]} g</span></div>`).join("")
+  +`<p class="note">Predicted (dark) vs actual (light). Average error ${mae.toFixed(1)} g, about ${mape.toFixed(1)}%. Sample values until you log real harvests.</p>`;
+
+$("photo").onchange=e=>{
+  const f=e.target.files[0];if(!f)return;
+  const im=new Image();
+  im.onload=()=>{
+    const c=$("cv"),w=Math.min(480,im.width),h=Math.round(im.height*w/im.width);
+    c.width=w;c.height=h;const x=c.getContext("2d");x.drawImage(im,0,0,w,h);
+    const d=x.getImageData(0,0,w,h),p=d.data;let n=0;
+    for(let i=0;i<p.length;i+=4){if(p[i+1]>60&&p[i+1]>p[i]*1.1&&p[i+1]>p[i+2]*1.1){n++;p[i]=214;p[i+1]=51;p[i+2]=108}}
+    x.putImageData(d,0,0);
+    $("cvOut").textContent=`Canopy coverage: ${(n/(w*h)*100).toFixed(0)}% of the photo, highlighted in pink. This is an estimate, best from a top-down photo in even light.`;
+    URL.revokeObjectURL(im.src);
+  };
+  im.src=URL.createObjectURL(f);
+};
+
+function cost(){
+  const p=predict(real),seed=+$("cs").value,pw=+$("cp").value,wc=+$("cw").value,pr=+$("cr").value;
+  const rev=p.y/100*pr,c=seed+p.water*wc+p.energy*pw,pf=rev-c;
+  $("cOut").innerHTML=[["Predicted yield",p.y.toFixed(0)+" g"],["Revenue","₹"+rev.toFixed(0)],["Cost","₹"+c.toFixed(0)],["Profit","₹"+pf.toFixed(0)],["Margin",rev?(pf/rev*100).toFixed(0)+"%":"-"]].map(r=>`<div class="li"><span>${r[0]}</span><b>${r[1]}</b></div>`).join("");
+  return pf;
+}
+["cs","cp","cw","cr"].forEach(id=>$(id).oninput=cost);cost();
+
+const fmt=d=>d.toLocaleDateString("en-IN",{weekday:"short",day:"numeric",month:"short"});
+$("cal").innerHTML=trays.map(t=>{const d=new Date();d.setDate(d.getDate()+9-t[2]);return [d,t]}).sort((a,b)=>a[0]-b[0])
+  .map(([d,t])=>`<div class="li"><span>${t[0]} <small>${t[1]}</small></span><span>${9-t[2]===0?"Today":fmt(d)}</span></div>`).join("");
+
+const actions=[["Day 4","Twin warned of rising mold risk. More airflow approved."],["Day 7","Watering cut by 15% on tray B. Approved."]];
+function showLog(){$("alog").innerHTML=actions.map(a=>`<div class="li"><small>${a[0]}</small><span>${a[1]}</span></div>`).join("")}
+function logAction(t){actions.unshift([new Date().toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"}),t]);showLog()}
+showLog();
+$("csv").onclick=()=>{
+  const rows=[["Growth records"],["record","day","stem_cm","root_cm","ratio","weight_g"],...records.map(r=>[r.n,r.day,r.stem,r.root,ratioOf(r).toFixed(2),r.wt]),[],["Action log"],...actions.map(a=>[a[0],`"${a[1]}"`])];
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([rows.map(r=>r.join(",")).join("\n")],{type:"text/csv"}));a.download="microtwin-batch-report.csv";a.click();
+};
+
+const say=(c,t)=>{const p=document.createElement("p");p.className=c;p.textContent=t;$("chat").appendChild(p);$("chat").scrollTop=1e5};
+function answer(q){
+  q=q.toLowerCase();const p=predict(real),r=records[records.length-1];
+  if(/humid|mold/.test(q))return `Humidity is ${Math.round(real.h)}% and mold risk is ${p.risk}. ${p.mold>.28?"More airflow should lower it.":"Conditions are fine for now."}`;
+  if(/yield|harvest/.test(q))return `Predicted yield is ${p.y.toFixed(0)} g, with harvest on day 9.`;
+  if(/water/.test(q))return `Watering at 100% uses about ${p.water.toFixed(1)} L. The simulator shows what a 15% cut does to yield and risk.`;
+  if(/root|stem/.test(q))return `Latest record (day ${r.day}): stem ${r.stem} cm, root ${r.root} cm, ratio ${ratioOf(r).toFixed(2)}, ${statusOf(r)[0].toLowerCase()}.`;
+  if(/cost|profit|money/.test(q))return `Estimated profit is ₹${cost().toFixed(0)} per tray with the prices in the grower tools.`;
+  if(/tray 5|tray 05|slow|germin/.test(q))return "Tray 05 is on day 2 and flagged for slow germination. Check substrate moisture and temperature first.";
+  return "Try asking about humidity, yield, water, stem and root, profit, or tray 5.";
+}
+function ask(q){if(!q.trim())return;say("q",q);say("a",answer(q));$("qi").value=""}
+$("qb").onclick=()=>ask($("qi").value);
+$("qi").onkeydown=e=>{if(e.key==="Enter")ask($("qi").value)};
+document.querySelectorAll("#sugg button").forEach(b=>b.onclick=()=>ask(b.textContent));
+say("a","Hi, I'm the twin of tray 07. Ask me about humidity, yield, water, stem and root, or profit. I answer from the sample data on this page.");
+
+const TA={"Simulator":"சிமுலேட்டர்","Monitor":"கண்காணிப்பு","Demo":"டெமோ","Farm":"பண்ணை","Growth":"வளர்ச்சி","Tools":"கருவிகள்","Features":"அம்சங்கள்","Roadmap":"செயல்திட்டம்",
+ "Experiment on the twin, not the crop.":"பயிரில் அல்ல, டிஜிட்டல் இரட்டையில் சோதியுங்கள்.",
+ "MicroTwin AI keeps a live digital copy of every microgreen tray. Test watering, light and airflow on the copy first, then apply the best choice to the real farm.":"ஒவ்வொரு மைக்ரோகிரீன் தட்டுக்கும் MicroTwin AI ஒரு நேரடி டிஜிட்டல் நகலை வைத்திருக்கிறது. நீர், ஒளி, காற்றோட்டத்தை முதலில் நகலில் சோதித்து, சிறந்த முடிவை உண்மையான பண்ணையில் செயல்படுத்துங்கள்.",
+ "Try the simulator":"சிமுலேட்டரை முயற்சிக்கவும்","See how it works":"எப்படி வேலை செய்கிறது",
+ 
+ "What if I change this?":"இதை மாற்றினால் என்ன ஆகும்?","Live monitor":"நேரடி கண்காணிப்பு","Watch a 9-day batch in 30 seconds":"9 நாள் பயிரை 30 வினாடிகளில் பாருங்கள்",
+ "Your whole farm at a glance":"உங்கள் முழு பண்ணையும் ஒரே பார்வையில்","Plant growth records: stem and root analysis":"தாவர வளர்ச்சி பதிவுகள்: தண்டு மற்றும் வேர் பகுப்பாய்வு",
+ "Growth analysis tools":"வளர்ச்சி பகுப்பாய்வு கருவிகள்","Grower tools":"விவசாயி கருவிகள்","Ask the twin":"டிஜிட்டல் இரட்டையிடம் கேளுங்கள்",
+ "From sensing to a decision you approve":"உணர்தலில் இருந்து நீங்கள் ஒப்புக்கொள்ளும் முடிவு வரை","Built to grow with the farm":"பண்ணையுடன் சேர்ந்து வளரும் வடிவமைப்பு"};
+let ta=false;
+$("lang").onclick=()=>{
+  ta=!ta;
+  document.querySelectorAll("nav a,.hero h1,.hero p,.hero .btn,section h2").forEach(el=>{const en=el.dataset.en||(el.dataset.en=el.textContent.trim());el.textContent=ta&&TA[en]?TA[en]:en});
+  $("lang").textContent=ta?"English":"தமிழ்";document.documentElement.lang=ta?"ta":"en";
+};
+$("theme").onclick=()=>{const r=document.documentElement,dark=r.dataset.theme?r.dataset.theme==="dark":matchMedia("(prefers-color-scheme:dark)").matches;r.dataset.theme=dark?"light":"dark"};
+
+const steps=["simulator","monitor","demo","farm","records","analysis","grower","ask"];let tm=null,ti=0;
+const clearHl=()=>document.querySelectorAll(".tourhl").forEach(e=>e.classList.remove("tourhl"));
+function tourStop(){clearInterval(tm);tm=null;clearHl();$("tour").textContent="Tour"}
+$("tour").onclick=()=>{
+  if(tm)return tourStop();
+  ti=0;$("tour").textContent="Stop";
+  const go=()=>{clearHl();if(ti>=steps.length)return tourStop();const el=$(steps[ti++]);el.classList.add("tourhl");el.scrollIntoView({behavior:"smooth",block:"start"})};
+  go();tm=setInterval(go,5000);
+};
+</script>
+</body>
+</html>
